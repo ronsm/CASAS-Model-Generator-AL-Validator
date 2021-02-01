@@ -13,6 +13,10 @@ from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import compute_class_weight
 from sklearn.model_selection import train_test_split
+from tensorflow import keras
+import sys
+from time import perf_counter
+from time import sleep
 
 import data
 import models
@@ -20,7 +24,7 @@ import models
 # fix random seed for reproducibility
 seed = 7
 units = 64
-epochs = 20
+epochs = 1
 
 class LearnersPredict(object):
     def __init__(self):
@@ -50,6 +54,8 @@ class LearnersPredict(object):
         y_test.to_csv('y_test.csv', index=False, header=False)
 
         return x_train, x_test, y_train, y_test, dictActivities
+
+    # Training
 
     def train_model(self, model_select, X, Y, dictActivities):
         msg = 'Using model: ' + model_select
@@ -150,6 +156,59 @@ class LearnersPredict(object):
         self.train_model('biLSTM', x_train, y_train, dictActivities)
         self.train_model('CascadeLSTM', x_train, y_train, dictActivities)
 
+    # Predicting
+
+    def load_test_data_and_models(self):
+        self.log('Loading test data...')
+        x_test = pd.read_csv('x_test.csv', header=None)
+        y_test = pd.read_csv('y_test.csv', header=None)
+
+        self.log('Loading models...')
+        model_LSTM = keras.models.load_model('LSTM.h5')
+        model_biLSTM = keras.models.load_model('biLSTM.h5')
+        model_CascadeLSTM = keras.models.load_model('CascadeLSTM.h5')
+
+        return x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM
+
+    def make_single_prediction(self, model, sample):
+        y_pred = model.predict_classes(sample)
+        return y_pred
+
+    def make_sequential_predictions(self, x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM):
+        x_test_data = x_test.values
+        y_test_data = y_test.values
+
+        x_test_data = np.array(x_test_data)
+
+        for i in range(0, len(y_test)):
+            if i > 0:
+                start_time = perf_counter()
+
+            sample = x_test_data[i]
+            # Keras LSTM expects 3D tensor even if batch size is one sample
+            sample = np.expand_dims(sample, axis=0)
+            print('Sample:', sample)
+
+            y_pred_LSTM = self.make_single_prediction(model_LSTM, sample)
+            y_pred_biLSTM = self.make_single_prediction(model_biLSTM, sample)
+            y_pred_CascadeLSTM = self.make_single_prediction(model_CascadeLSTM, sample)
+
+            self.log('Prediction analysis:')
+            print('Actual:', y_test_data[i], 'Predictions: LSTM =', y_pred_LSTM, ', biLSTM =', y_pred_biLSTM, ', Cascade:LSTM = ', y_pred_CascadeLSTM)
+
+            if i > 0:
+                end_time = perf_counter()
+                time_taken = end_time - start_time
+                delay_time = 1.0 - time_taken
+
+                if delay_time >= 0.0:
+                    print('Prediction time was:', time_taken, ', sleeping for:', delay_time, 'seconds')
+                    sleep(delay_time)
+                else:
+                    self.log_warn('Prediction took longer than 1 second! System is not keeping up with real-time.')
+    
+    # Logging
+
     def startup_msg(self):
         print(Fore.YELLOW + '* * * * * * * * * * * * * * * * * *')
         print()
@@ -164,8 +223,23 @@ class LearnersPredict(object):
     def log(self, msg):
         tag = '[' + self.id + ']'
         print(Fore.CYAN + tag, Fore.RESET + msg)
+    
+    def log_warn(self, msg):
+        tag = '[' + self.id + ']'
+        print(Fore.CYAN + tag, Fore.LIGHTRED_EX + msg, Fore.RESET)
 
 if __name__ == '__main__':
     lp = LearnersPredict()
-    x_train, x_test, y_train, y_test, dictActivities = lp.create_train_test_csvs()
-    lp.train_models(x_train, y_train, dictActivities)
+
+    first_arg = sys.argv[1]
+
+    if first_arg == "train":
+        lp.log('TRAINING MODE')
+        x_train, x_test, y_train, y_test, dictActivities = lp.create_train_test_csvs()
+        lp.train_models(x_train, y_train, dictActivities)
+    elif first_arg == "predict":
+        lp.log('PREDICTION MODE')
+        x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM = lp.load_test_data_and_models()
+        lp.make_sequential_predictions(x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM)
+    else:
+        lp.log('Invalid mode.')
