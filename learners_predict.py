@@ -6,11 +6,13 @@ from datetime import datetime
 import colorama
 from colorama import Fore, Style
 import numpy as np
+import pandas as pd
 from keras.callbacks import ModelCheckpoint, CSVLogger
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import compute_class_weight
+from sklearn.model_selection import train_test_split
 
 import data
 import models
@@ -18,7 +20,7 @@ import models
 # fix random seed for reproducibility
 seed = 7
 units = 64
-epochs = 200
+epochs = 20
 
 class LearnersPredict(object):
     def __init__(self):
@@ -34,11 +36,26 @@ class LearnersPredict(object):
             msg = 'Invalid dataset selected.'
             self.log(msg)
 
-    def train_model(self, model_select):
+    def create_train_test_csvs(self):
+        self.log('Creating train/test CSVs...')
+
+        X, Y, dictActivities = data.getData(self.dataset_select)
+
+        x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.33, random_state=seed)
+
+        x_test = pd.DataFrame(x_test)
+        y_test = pd.DataFrame(y_test)
+
+        x_test.to_csv('x_test.csv', index=False, header=False)
+        y_test.to_csv('y_test.csv', index=False, header=False)
+
+        return x_train, x_test, y_train, y_test, dictActivities
+
+    def train_model(self, model_select, X, Y, dictActivities):
         msg = 'Using model: ' + model_select
         self.log(msg)
 
-        X, Y, dictActivities = data.getData(self.dataset_select)
+        # X, Y, dictActivities = data.getData(self.dataset_select)
 
         label_encoder = LabelEncoder()
         Y = label_encoder.fit_transform(Y)
@@ -128,10 +145,10 @@ class LearnersPredict(object):
             for val in cvscores:
                 writer.writerow([",".join(str(el) for el in val)])
 
-    def train_models(self):
-        self.train_model('LSTM')
-        self.train_model('biLSTM')
-        self.train_model('CascadeLSTM')
+    def train_models(self, x_train, y_train, dictActivities):
+        self.train_model('LSTM', x_train, y_train, dictActivities)
+        self.train_model('biLSTM', x_train, y_train, dictActivities)
+        self.train_model('CascadeLSTM', x_train, y_train, dictActivities)
 
     def startup_msg(self):
         print(Fore.YELLOW + '* * * * * * * * * * * * * * * * * *')
@@ -150,4 +167,5 @@ class LearnersPredict(object):
 
 if __name__ == '__main__':
     lp = LearnersPredict()
-    lp.train_models()
+    x_train, x_test, y_train, y_test, dictActivities = lp.create_train_test_csvs()
+    lp.train_models(x_train, y_train, dictActivities)
