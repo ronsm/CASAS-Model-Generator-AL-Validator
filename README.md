@@ -12,6 +12,6 @@ The purpose of this software is to simulate a real smart home with multiple HAR 
 
 ## Usage
 
-The ```data.py``` and ```models.py``` files are taken from [deep-casas](https://github.com/danielelic/deep-casas). Running ```train.py``` generates a numpy-compatible dataset. Unlike in the original code, this version splits the dataset into seperate train/test files at a 70/30 split. The ```models.py``` file describes the models, which contains both the existing (from Liciotti et al.) and newly added models.
+The ```data.py``` and ```models.py``` files are taken from [deep-casas](https://github.com/danielelic/deep-casas). Running ```data.py``` generates a numpy-compatible dataset. Unlike in the original code, this version splits the dataset into seperate train/test files at a 70/30 split. The ```models.py``` file describes the models, which contains both the existing (from Liciotti et al.) and newly added models.
 
 The ```learners_predict.py``` file implements training of specified models (LSTM, biLSTM, CascadeLSTM) and methods to generate parallel predictions from those models on test data in simulated real-time.
