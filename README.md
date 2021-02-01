@@ -6,7 +6,6 @@ This repository provides a mechanism to generate predictions on streaming CASAS 
 D. Liciotti, M. Bernardini, L. Romeo, and E. Frontoni, ‘A sequential deep learning
 application for recognising human activities in smart homes’, Neurocomputing, vol. 396,
 pp. 501–513, Jul. 2020, doi: 10.1016/j.neucom.2018.10.104.
-
 ```
 
 The purpose of this software is to simulate a real smart home with multiple HAR classifiers, to enable experiments in active learning.
