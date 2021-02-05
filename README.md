@@ -8,7 +8,7 @@ application for recognising human activities in smart homes’, Neurocomputing, 
 pp. 501–513, Jul. 2020, doi: 10.1016/j.neucom.2018.10.104.
 ```
 
-The software forms part of a system to enable simulation of a real smart home with multiple HAR classifiers, to enable experiments in active learning.
+This software forms part of a system to enable simulation of a real smart home with multiple HAR classifiers, to enable experiments in active learning.
 
 ## Usage
 
