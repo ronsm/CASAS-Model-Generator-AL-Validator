@@ -24,7 +24,7 @@ import models
 # fix random seed for reproducibility
 seed = 7
 units = 64
-epochs = 1
+epochs = 20
 
 class LearnersPredict(object):
     def __init__(self):
@@ -65,6 +65,7 @@ class LearnersPredict(object):
 
         label_encoder = LabelEncoder()
         Y = label_encoder.fit_transform(Y)
+        np.save('classes.npy', label_encoder.classes_)
 
         cvaccuracy = []
         cvscores = []
@@ -212,7 +213,7 @@ class LearnersPredict(object):
     def startup_msg(self):
         print(Fore.YELLOW + '* * * * * * * * * * * * * * * * * *')
         print()
-        print(Style.BRIGHT + 'Untitled Project' + Style.RESET_ALL + Fore.YELLOW)
+        print(Style.BRIGHT + 'CASAS RNN Model Generator' + Style.RESET_ALL + Fore.YELLOW)
         print()
         print(' Developer: Ronnie Smith')
         print(' Email:     ronnie.smith@ed.ac.uk')
