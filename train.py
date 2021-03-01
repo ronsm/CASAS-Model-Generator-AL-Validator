@@ -24,14 +24,14 @@ import models
 # fix random seed for reproducibility
 seed = 7
 units = 64
-epochs = 20
+epochs = 5
 
 class LearnersPredict(object):
     def __init__(self):
         self.startup_msg()
-        self.id = 'learners_predict'
+        self.id = 'train'
 
-        self.dataset_select = "kyoto11"
+        self.dataset_select = "milan"
 
         if self.dataset_select in data.datasetsNames:
             msg = 'Selected dataset: ' + self.dataset_select
@@ -45,13 +45,21 @@ class LearnersPredict(object):
 
         X, Y, dictActivities = data.getData(self.dataset_select)
 
-        x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=0.33, random_state=seed)
+        x_train, x_test, y_train, y_test = train_test_split(X, Y, shuffle=False, test_size=0.5, random_state=seed)
+
+        x_test, x_validation, y_test, y_validation = train_test_split(x_test, y_test, shuffle=False, test_size=0.5, random_state=seed)
 
         x_test = pd.DataFrame(x_test)
         y_test = pd.DataFrame(y_test)
 
+        x_validation = pd.DataFrame(x_validation)
+        y_validation = pd.DataFrame(y_validation)
+
         x_test.to_csv('x_test.csv', index=False, header=False)
         y_test.to_csv('y_test.csv', index=False, header=False)
+        
+        x_validation.to_csv('x_validation.csv', index=False, header=False)
+        y_validation.to_csv('y_validation.csv', index=False, header=False)
 
         return x_train, x_test, y_train, y_test, dictActivities
 

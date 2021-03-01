@@ -264,6 +264,7 @@ def load_dataset(filename):
             if y != YY[i - 1]:
                 Y.append(y)
             X.append(x)
+
     return X, Y, dictActivities
 
 
@@ -290,6 +291,8 @@ if __name__ == '__main__':
                                                  dictActivities,
                                                  mappingActivities[datasetName],
                                                  cookActivities[datasetName])
+
+        print(Y)
 
         print(sorted(dictActivities, key=dictActivities.get))
         print("n° instances post-filtering:\t" + str(len(X)))
