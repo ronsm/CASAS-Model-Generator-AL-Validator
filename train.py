@@ -55,8 +55,11 @@ class LearnersPredict(object):
         x_validation = pd.DataFrame(x_validation)
         y_validation = pd.DataFrame(y_validation)
 
-        x_train.to_csv('x_train.csv', index=False, header=False)
-        y_train.to_csv('x_train.csv', index=False, header=False)
+        x_train_write = pd.DataFrame(x_train)
+        y_train_write = pd.DataFrame(y_train)
+
+        x_train_write.to_csv('x_train.csv', index=False, header=False)
+        y_train_write.to_csv('y_train.csv', index=False, header=False)
 
         x_test.to_csv('x_test.csv', index=False, header=False)
         y_test.to_csv('y_test.csv', index=False, header=False)
