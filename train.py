@@ -17,6 +17,7 @@ from tensorflow import keras
 import sys
 from time import perf_counter
 from time import sleep
+import os.path
 
 import data
 import models
@@ -49,6 +50,21 @@ class LearnersPredict(object):
 
         x_test, x_validation, y_test, y_validation = train_test_split(x_test, y_test, shuffle=False, test_size=0.5, random_state=seed)
 
+        if os.path.isfile('CSVs/annotations.csv'):
+            self.log_warn('[WARNING] Annotations file is present. Annotations will be appended to the training set.')
+            annotations = pd.read_csv('CSVs/annotations.csv', skiprows=1, header=None)
+            y_annotations = annotations.iloc[:,-1:]
+            x_annotations = annotations.drop(annotations.columns[-1], axis=1)
+
+            x_train = pd.DataFrame(x_train)
+            x_train = pd.concat([x_train, x_annotations])
+            x_train = x_train.values
+
+            y_train = pd.DataFrame(y_train)
+            y_annotations = y_annotations.rename(columns={2000:0})
+            y_train = pd.concat([y_train, y_annotations])
+            y_train = y_train.values
+
         x_test = pd.DataFrame(x_test)
         y_test = pd.DataFrame(y_test)
 
@@ -58,14 +74,14 @@ class LearnersPredict(object):
         x_train_write = pd.DataFrame(x_train)
         y_train_write = pd.DataFrame(y_train)
 
-        x_train_write.to_csv('x_train.csv', index=False, header=False)
-        y_train_write.to_csv('y_train.csv', index=False, header=False)
+        x_train_write.to_csv('CSVs/x_train.csv', index=False, header=False)
+        y_train_write.to_csv('CSVs/y_train.csv', index=False, header=False)
 
-        x_test.to_csv('x_test.csv', index=False, header=False)
-        y_test.to_csv('y_test.csv', index=False, header=False)
+        x_test.to_csv('CSVs/x_test.csv', index=False, header=False)
+        y_test.to_csv('CSVs/y_test.csv', index=False, header=False)
         
-        x_validation.to_csv('x_validation.csv', index=False, header=False)
-        y_validation.to_csv('y_validation.csv', index=False, header=False)
+        x_validation.to_csv('CSVs/x_validation.csv', index=False, header=False)
+        y_validation.to_csv('CSVs/y_validation.csv', index=False, header=False)
 
         return x_train, x_test, y_train, y_test, dictActivities
 
@@ -175,8 +191,8 @@ class LearnersPredict(object):
 
     def load_test_data_and_models(self):
         self.log('Loading test data...')
-        x_test = pd.read_csv('x_test.csv', header=None)
-        y_test = pd.read_csv('y_test.csv', header=None)
+        x_test = pd.read_csv('CSVs/x_test.csv', header=None)
+        y_test = pd.read_csv('CSVs/y_test.csv', header=None)
 
         self.log('Loading models...')
         model_LSTM = keras.models.load_model('LSTM.h5')
