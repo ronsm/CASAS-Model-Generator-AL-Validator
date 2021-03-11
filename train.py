@@ -83,7 +83,7 @@ class LearnersPredict(object):
         x_validation.to_csv('CSVs/x_validation.csv', index=False, header=False)
         y_validation.to_csv('CSVs/y_validation.csv', index=False, header=False)
 
-        return x_train, x_test, y_train, y_test, dictActivities
+        return x_train, x_test, x_validation, y_train, y_test, y_validation, dictActivities
 
     # Training
 
@@ -191,15 +191,15 @@ class LearnersPredict(object):
 
     def load_test_data_and_models(self):
         self.log('Loading test data...')
-        x_test = pd.read_csv('CSVs/x_test.csv', header=None)
-        y_test = pd.read_csv('CSVs/y_test.csv', header=None)
+        x_validation = pd.read_csv('CSVs/x_validation.csv', header=None)
+        y_validation = pd.read_csv('CSVs/y_validation.csv', header=None)
 
         self.log('Loading models...')
-        model_LSTM = keras.models.load_model('LSTM.h5')
-        model_biLSTM = keras.models.load_model('biLSTM.h5')
-        model_CascadeLSTM = keras.models.load_model('CascadeLSTM.h5')
+        model_LSTM = keras.models.load_model('models/LSTM.h5')
+        model_biLSTM = keras.models.load_model('models/biLSTM.h5')
+        model_CascadeLSTM = keras.models.load_model('models/CascadeLSTM.h5')
 
-        return x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM
+        return x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM
 
     def make_single_prediction(self, model, sample):
         y_pred = model.predict_classes(sample)
@@ -210,6 +210,10 @@ class LearnersPredict(object):
         y_test_data = y_test.values
 
         x_test_data = np.array(x_test_data)
+
+        y_preds_LSTM = []
+        y_preds_biLSTM = []
+        y_preds_CascadeLSTM = []
 
         for i in range(0, len(y_test)):
             if i > 0:
@@ -224,6 +228,10 @@ class LearnersPredict(object):
             y_pred_biLSTM = self.make_single_prediction(model_biLSTM, sample)
             y_pred_CascadeLSTM = self.make_single_prediction(model_CascadeLSTM, sample)
 
+            y_preds_LSTM.append(y_pred_LSTM)
+            y_preds_biLSTM.append(y_pred_biLSTM)
+            y_preds_CascadeLSTM.append(y_pred_CascadeLSTM)
+
             self.log('Prediction analysis:')
             print('Actual:', y_test_data[i], 'Predictions: LSTM =', y_pred_LSTM, ', biLSTM =', y_pred_biLSTM, ', Cascade:LSTM = ', y_pred_CascadeLSTM)
 
@@ -237,6 +245,24 @@ class LearnersPredict(object):
                     sleep(delay_time)
                 else:
                     self.log_warn('Prediction took longer than 1 second! System is not keeping up with real-time.')
+
+    def make_batch_predictions(self, x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM):
+        x_test_data = x_test.values
+        y_test_data = y_test.values
+
+        x_test_data = np.array(x_test_data)
+
+        y_preds_LSTM = model_LSTM.predict_classes(x_test_data, verbose=1)
+        cr_LSTM = classification_report(y_test_data, y_preds_LSTM)
+        print(cr_LSTM)
+
+        y_preds_biLSTM = model_biLSTM.predict_classes(x_test_data, verbose=1)
+        cr_biLSTM = classification_report(y_test_data, y_preds_biLSTM)
+        print(cr_biLSTM)
+
+        y_preds_CascadeLSTM = model_CascadeLSTM.predict_classes(x_test_data, verbose=1)
+        cr_CascadeLSTM = classification_report(y_test_data, y_preds_CascadeLSTM)
+        print(cr_CascadeLSTM)
     
     # Logging
 
@@ -266,15 +292,19 @@ if __name__ == '__main__':
 
     if first_arg == "train":
         lp.log('TRAINING MODE')
-        x_train, x_test, y_train, y_test, dictActivities = lp.create_train_test_csvs()
+        x_train, x_test, x_validation, y_train, y_test, y_validation, dictActivities = lp.create_train_test_csvs()
         lp.train_models(x_train, y_train, dictActivities)
-    elif first_arg == "test":
+    elif first_arg == "val_real_time":
         lp.log('PREDICTION MODE')
-        x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM = lp.load_test_data_and_models()
-        lp.make_sequential_predictions(x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM)
+        x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM = lp.load_test_data_and_models()
+        lp.make_sequential_predictions(x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM)
+    elif first_arg == "val_batch":
+        lp.log('PREDICTION MODE')
+        x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM = lp.load_test_data_and_models()
+        lp.make_batch_predictions(x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM)
     elif first_arg == "dataset_only":
         lp.log('DATASET GENERATION ONLY MODE')
         lp.log_warn('[WARNING] This will result in a dataset that does not correspond to any trained models.')
-        x_train, x_test, y_train, y_test, dictActivities = lp.create_train_test_csvs()
+        x_train, x_test, x_validation, y_train, y_test, y_validation, dictActivities = lp.create_train_test_csvs()
     else:
         lp.log('Invalid mode.')
