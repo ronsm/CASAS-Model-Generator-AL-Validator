@@ -55,6 +55,9 @@ class LearnersPredict(object):
         x_validation = pd.DataFrame(x_validation)
         y_validation = pd.DataFrame(y_validation)
 
+        x_train.to_csv('x_train.csv', index=False, header=False)
+        y_train.to_csv('x_train.csv', index=False, header=False)
+
         x_test.to_csv('x_test.csv', index=False, header=False)
         y_test.to_csv('y_test.csv', index=False, header=False)
         
@@ -250,5 +253,9 @@ if __name__ == '__main__':
         lp.log('PREDICTION MODE')
         x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM = lp.load_test_data_and_models()
         lp.make_sequential_predictions(x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM)
+    elif first_arg == "dataset_only":
+        lp.log('DATASET GENERATION ONLY MODE')
+        lp.log_warn('[WARNING] This will result in a dataset that does not correspond to any trained models.')
+        x_train, x_test, y_train, y_test, dictActivities = lp.create_train_test_csvs()
     else:
         lp.log('Invalid mode.')
