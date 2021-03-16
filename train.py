@@ -7,27 +7,32 @@ import colorama
 from colorama import Fore, Style
 import numpy as np
 import pandas as pd
+from tensorflow import keras
 from keras.callbacks import ModelCheckpoint, CSVLogger
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import compute_class_weight
+from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
-from tensorflow import keras
+from sklearn import tree
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier
 import sys
 from time import perf_counter
 from time import sleep
 import os.path
+import pickle
 
 import data
-import models
 
 # fix random seed for reproducibility
 seed = 7
 units = 64
 epochs = 5
 
-class LearnersPredict(object):
+class TrainNN(object):
     def __init__(self):
         self.startup_msg()
         self.id = 'train'
@@ -46,9 +51,9 @@ class LearnersPredict(object):
 
         X, Y, dictActivities = data.getData(self.dataset_select)
 
-        x_train, x_test, y_train, y_test = train_test_split(X, Y, shuffle=False, test_size=0.5, random_state=seed)
+        x_train, x_test, y_train, y_test = train_test_split(X, Y, shuffle=False, train_size=300, random_state=seed)
 
-        x_test, x_validation, y_test, y_validation = train_test_split(x_test, y_test, shuffle=False, test_size=0.5, random_state=seed)
+        x_test, x_validation, y_test, y_validation = train_test_split(x_test, y_test, shuffle=False, test_size=400, random_state=seed)
 
         if os.path.isfile('CSVs/annotations.csv'):
             self.log_warn('[WARNING] Annotations file is present. Annotations will be appended to the training set.')
@@ -83,109 +88,71 @@ class LearnersPredict(object):
         x_validation.to_csv('CSVs/x_validation.csv', index=False, header=False)
         y_validation.to_csv('CSVs/y_validation.csv', index=False, header=False)
 
+        y_train = y_train.astype('int')
+
         return x_train, x_test, x_validation, y_train, y_test, y_validation, dictActivities
+
+    def save_model(self, model, name):
+        self.log('Saving model...')
+        save_file = 'models/' + name + '.p'
+        pickle.dump(model, open(save_file, "wb"))
 
     # Training
 
-    def train_model(self, model_select, X, Y, dictActivities):
-        msg = 'Using model: ' + model_select
-        self.log(msg)
-
-        # X, Y, dictActivities = data.getData(self.dataset_select)
-
+    def train_model_1(self, X, Y, dictActivities):
+        self.log('Training model 1...')
         label_encoder = LabelEncoder()
         Y = label_encoder.fit_transform(Y)
         np.save('classes.npy', label_encoder.classes_)
 
-        cvaccuracy = []
-        cvscores = []
-        modelname = ''
+        rf = RandomForestClassifier(n_estimators=100)
+        # rf = rf.fit(X, Y)
 
-        kfold = StratifiedKFold(n_splits=3, shuffle=True, random_state=seed)
-        k = 0
-        for train, test in kfold.split(X, Y):
-            print('X_train shape:', X[train].shape)
-            print('y_train shape:', Y[train].shape)
+        scores = cross_val_score(rf, X, Y, cv=5)
+        print("%0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+        print(scores)
 
-            print(dictActivities)
+        return rf
 
-            input_dim = len(X[train])
-            X_train_input = X[train]
-            X_test_input = X[test]
+    def train_model_2(self, X, Y, dictActivities):
+        self.log('Training model 2...')
+        label_encoder = LabelEncoder()
+        Y = label_encoder.fit_transform(Y)
+        np.save('classes.npy', label_encoder.classes_)
 
-            no_activities = len(dictActivities)
+        gbc = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=1, random_state=0)
+        # gbc.fit(X, Y)
 
-            if model_select == 'LSTM':
-                model = models.get_LSTM(
-                    input_dim, units, data.max_lenght, no_activities)
-            elif model_select == 'biLSTM':
-                model = models.get_biLSTM(
-                    input_dim, units, data.max_lenght, no_activities)
-            elif model_select == 'Ensemble2LSTM':
-                model = models.get_Ensemble2LSTM(
-                    input_dim, units, data.max_lenght, no_activities)
-            elif model_select == 'CascadeEnsembleLSTM':
-                model = models.get_CascadeEnsembleLSTM(
-                    input_dim, units, data.max_lenght, no_activities)
-            elif model_select == 'CascadeLSTM':
-                model = models.get_CascadeLSTM(
-                    input_dim, units, data.max_lenght, no_activities)
-            else:
-                self.log('Invalid model.')
-                exit(-1)
+        scores = cross_val_score(gbc, X, Y, cv=5)
+        print("%0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+        print(scores)
 
-            model = models.compileModel(model)
-            modelname = model.name
+        return gbc
 
-            currenttime = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
-            csv_logger = CSVLogger(
-                model.name + '-' + self.dataset_select + '-' + str(currenttime) + '.csv')
-            model_checkpoint = ModelCheckpoint(
-                model.name + '-' + self.dataset_select + '-' + str(currenttime) + '.h5',
-                monitor='val_accuracy',
-                save_best_only=True)
+    def train_model_3(self, X, Y, dictActivities):
+        self.log('Training model 3...')
+        label_encoder = LabelEncoder()
+        Y = label_encoder.fit_transform(Y)
+        np.save('classes.npy', label_encoder.classes_)
 
-            self.log('Begin training...')
-            class_weight = compute_class_weight('balanced', classes=np.unique(Y), y=Y)
+        dt = tree.DecisionTreeClassifier()
+        # dt = dt.fit(X, Y)
 
-            model.fit(X_train_input, Y[train], validation_split=0.2, epochs=epochs, batch_size=64, verbose=1,
-                      callbacks=[csv_logger, model_checkpoint])
+        scores = cross_val_score(dt, X, Y, cv=5)
+        print("%0.2f accuracy with a standard deviation of %0.2f" % (scores.mean(), scores.std()))
+        print(scores)
 
-            self.log('Begin testing ...')
-            scores = model.evaluate(
-                X_test_input, Y[test], batch_size=64, verbose=1)
-            print('%s: %.2f%%' % (model.metrics_names[1], scores[1] * 100))
-
-            self.log('Report:')
-            target_names = sorted(dictActivities, key=dictActivities.get)
-
-            classes = model.predict_classes(X_test_input, batch_size=64)
-            print(classification_report(
-                list(Y[test]), classes, target_names=target_names))
-            print('Confusion matrix:')
-            labels = list(dictActivities.values())
-            print(confusion_matrix(list(Y[test]), classes, labels=labels))
-
-            cvaccuracy.append(scores[1] * 100)
-            cvscores.append(scores)
-
-            k += 1
-
-        print('{:.2f}% (+/- {:.2f}%)'.format(np.mean(cvaccuracy), np.std(cvaccuracy)))
-
-        currenttime = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
-        csvfile = 'cv-scores-' + modelname + '-' + \
-            self.dataset_select + '-' + str(currenttime) + '.csv'
-
-        with open(csvfile, "w") as output:
-            writer = csv.writer(output, lineterminator='\n')
-            for val in cvscores:
-                writer.writerow([",".join(str(el) for el in val)])
+        return dt
 
     def train_models(self, x_train, y_train, dictActivities):
-        self.train_model('LSTM', x_train, y_train, dictActivities)
-        self.train_model('biLSTM', x_train, y_train, dictActivities)
-        self.train_model('CascadeLSTM', x_train, y_train, dictActivities)
+        model_1 = self.train_model_1(x_train, y_train, dictActivities)
+        self.save_model(model_1, 'Model1')
+
+        model_2 = self.train_model_2(x_train, y_train, dictActivities)
+        self.save_model(model_2, 'Model2')
+
+        model_3 = self.train_model_3(x_train, y_train, dictActivities)
+        self.save_model(model_3, 'Model3')
 
     # Test
 
@@ -195,74 +162,29 @@ class LearnersPredict(object):
         y_validation = pd.read_csv('CSVs/y_validation.csv', header=None)
 
         self.log('Loading models...')
-        model_LSTM = keras.models.load_model('models/LSTM.h5')
-        model_biLSTM = keras.models.load_model('models/biLSTM.h5')
-        model_CascadeLSTM = keras.models.load_model('models/CascadeLSTM.h5')
+        model_1 = pickle.load(open('models/Model1.p', 'rb'))
+        model_2 = pickle.load(open('models/Model2.p', 'rb'))
+        model_3 = pickle.load(open('models/Model3.p', 'rb'))
 
-        return x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM
+        return x_validation, y_validation, model_1, model_2, model_3
 
-    def make_single_prediction(self, model, sample):
-        y_pred = model.predict_classes(sample)
-        return y_pred
-
-    def make_sequential_predictions(self, x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM):
+    def make_batch_predictions(self, x_test, y_test, model_1, model_2, model_3):
         x_test_data = x_test.values
         y_test_data = y_test.values
 
         x_test_data = np.array(x_test_data)
 
-        y_preds_LSTM = []
-        y_preds_biLSTM = []
-        y_preds_CascadeLSTM = []
+        model_1_preds = model_1.predict(x_test_data)
+        cr_model_1 = classification_report(y_test_data, model_1_preds)
+        print(cr_model_1)
 
-        for i in range(0, len(y_test)):
-            if i > 0:
-                start_time = perf_counter()
+        model_2_preds = model_2.predict(x_test_data)
+        cr_model_2 = classification_report(y_test_data, model_2_preds)
+        print(cr_model_2)
 
-            sample = x_test_data[i]
-            # Keras LSTM expects 3D tensor even if batch size is one sample
-            sample = np.expand_dims(sample, axis=0)
-            print('Sample:', sample)
-
-            y_pred_LSTM = self.make_single_prediction(model_LSTM, sample)
-            y_pred_biLSTM = self.make_single_prediction(model_biLSTM, sample)
-            y_pred_CascadeLSTM = self.make_single_prediction(model_CascadeLSTM, sample)
-
-            y_preds_LSTM.append(y_pred_LSTM)
-            y_preds_biLSTM.append(y_pred_biLSTM)
-            y_preds_CascadeLSTM.append(y_pred_CascadeLSTM)
-
-            self.log('Prediction analysis:')
-            print('Actual:', y_test_data[i], 'Predictions: LSTM =', y_pred_LSTM, ', biLSTM =', y_pred_biLSTM, ', Cascade:LSTM = ', y_pred_CascadeLSTM)
-
-            if i > 0:
-                end_time = perf_counter()
-                time_taken = end_time - start_time
-                delay_time = 1.0 - time_taken
-
-                if delay_time >= 0.0:
-                    print('Prediction time was:', time_taken, ', sleeping for:', delay_time, 'seconds')
-                    sleep(delay_time)
-                else:
-                    self.log_warn('Prediction took longer than 1 second! System is not keeping up with real-time.')
-
-    def make_batch_predictions(self, x_test, y_test, model_LSTM, model_biLSTM, model_CascadeLSTM):
-        x_test_data = x_test.values
-        y_test_data = y_test.values
-
-        x_test_data = np.array(x_test_data)
-
-        y_preds_LSTM = model_LSTM.predict_classes(x_test_data, verbose=1)
-        cr_LSTM = classification_report(y_test_data, y_preds_LSTM)
-        print(cr_LSTM)
-
-        y_preds_biLSTM = model_biLSTM.predict_classes(x_test_data, verbose=1)
-        cr_biLSTM = classification_report(y_test_data, y_preds_biLSTM)
-        print(cr_biLSTM)
-
-        y_preds_CascadeLSTM = model_CascadeLSTM.predict_classes(x_test_data, verbose=1)
-        cr_CascadeLSTM = classification_report(y_test_data, y_preds_CascadeLSTM)
-        print(cr_CascadeLSTM)
+        model_3_preds = model_3.predict(x_test_data)
+        cr_model_3 = classification_report(y_test_data, model_3_preds)
+        print(cr_model_3)
     
     # Logging
 
@@ -286,25 +208,21 @@ class LearnersPredict(object):
         print(Fore.CYAN + tag, Fore.LIGHTRED_EX + msg, Fore.RESET)
 
 if __name__ == '__main__':
-    lp = LearnersPredict()
+    tnn = TrainNN()
 
     first_arg = sys.argv[1]
 
     if first_arg == "train":
-        lp.log('TRAINING MODE')
-        x_train, x_test, x_validation, y_train, y_test, y_validation, dictActivities = lp.create_train_test_csvs()
-        lp.train_models(x_train, y_train, dictActivities)
-    elif first_arg == "val_real_time":
-        lp.log('PREDICTION MODE')
-        x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM = lp.load_test_data_and_models()
-        lp.make_sequential_predictions(x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM)
+        tnn.log('TRAINING MODE')
+        x_train, x_test, x_validation, y_train, y_test, y_validation, dictActivities = tnn.create_train_test_csvs()
+        tnn.train_models(x_train, y_train, dictActivities)
     elif first_arg == "val_batch":
-        lp.log('PREDICTION MODE')
-        x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM = lp.load_test_data_and_models()
-        lp.make_batch_predictions(x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM)
+        tnn.log('PREDICTION MODE')
+        x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM = tnn.load_test_data_and_models()
+        tnn.make_batch_predictions(x_validation, y_validation, model_LSTM, model_biLSTM, model_CascadeLSTM)
     elif first_arg == "dataset_only":
-        lp.log('DATASET GENERATION ONLY MODE')
-        lp.log_warn('[WARNING] This will result in a dataset that does not correspond to any trained models.')
-        x_train, x_test, x_validation, y_train, y_test, y_validation, dictActivities = lp.create_train_test_csvs()
+        tnn.log('DATASET GENERATION ONLY MODE')
+        tnn.log_warn('[WARNING] This will result in a dataset that does not correspond to any trained models.')
+        x_train, x_test, x_validation, y_train, y_test, y_validation, dictActivities = tnn.create_train_test_csvs()
     else:
-        lp.log('Invalid mode.')
+        tnn.log('Invalid mode.')
